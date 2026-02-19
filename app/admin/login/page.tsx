@@ -1,35 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useUser } from "../components/UserContext";
+import { useRouter } from "next/navigation";
+import { useAdmin } from "@/app/components/AdminContext";
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const { login: userLogin, isAuthenticated: isUserAuthenticated, isVerifying } = useUser();
+  const { login, isAuthenticated } = useAdmin();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/";
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    setIsAdminAuthenticated(!!localStorage.getItem("admin"));
-  }, []);
-
-  // Redirect only when user auth is verified and no admin session is active.
-  useEffect(() => {
-    if (isVerifying) return;
-    if (isUserAuthenticated && !isAdminAuthenticated) {
-      router.replace(redirect);
+    if (isAuthenticated) {
+      router.push("/admin");
     }
-  }, [isUserAuthenticated, isAdminAuthenticated, isVerifying, redirect, router]);
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,12 +26,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // User login only — admin must use /admin/login
-      const userResult = await userLogin(formData.email, formData.password);
-      if (userResult.success) {
-        router.replace(redirect);
+      const success = await login(formData.email, formData.password);
+      if (success) {
+        router.push("/admin");
       } else {
-        setError(userResult.error || "Invalid email or password");
+        setError("Invalid email or password");
       }
     } catch (err) {
       setError("An error occurred. Please try again.");
@@ -52,14 +40,19 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-[80vh] items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-zinc-200 bg-white p-8 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
         <div className="text-center">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-lg bg-blue-600 text-white">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            Log in to your account
+            Admin Login
           </h1>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            Welcome back! Please enter your details.
+            Sign in to access the admin dashboard
           </p>
         </div>
 
@@ -109,57 +102,26 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
-              />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-sm text-zinc-700 dark:text-zinc-300"
-              >
-                Remember me
-              </label>
-            </div>
-
-            <div className="text-sm">
-              <a
-                href="#"
-                className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
-              >
-                Forgot your password?
-              </a>
-            </div>
-          </div>
-
           <div>
             <button
               type="submit"
               disabled={isLoading}
               className="flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Signing in..." : "Log in"}
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </div>
         </form>
 
         <div className="text-center">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Don't have an account?{" "}
-            <Link
-              href="/signup"
-              className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
-            >
-              Sign up
-            </Link>
-          </p>
+          <a
+            href="/"
+            className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            ← Back to website
+          </a>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
-
-

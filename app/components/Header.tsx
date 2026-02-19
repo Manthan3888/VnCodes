@@ -89,10 +89,14 @@ function IconClose(props: { className?: string }) {
 }
 
 import { useCart } from "./CartContext";
+import { useUser } from "./UserContext";
 
 export function Header() {
-  const { totalItems } = useCart();
+  const { cart, totalItems, totalPrice, removeFromCart } = useCart();
+  const { user, isAuthenticated, logout } = useUser();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showCartDropdown, setShowCartDropdown] = useState(false);
 
 
   const navItems: NavItem[] = useMemo(
@@ -107,11 +111,30 @@ export function Header() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setMobileOpen(false);
+      if (e.key === "Escape") {
+        setMobileOpen(false);
+        setShowUserMenu(false);
+        setShowCartDropdown(false);
+      }
+    }
+
+    function onClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".user-menu-container")) {
+        setShowUserMenu(false);
+      }
+      // Only close cart if click is outside and target is still in DOM (avoids closing when remove-item button is unmounted)
+      if (!target.closest(".cart-dropdown-container") && document.contains(target)) {
+        setShowCartDropdown(false);
+      }
     }
 
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("click", onClickOutside);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("click", onClickOutside);
+    };
   }, []);
 
   return (
@@ -143,24 +166,161 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/cart"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white"
-              aria-label="Cart"
-            >
-              <IconCart className="h-5 w-5" />
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
-                {totalItems}
-              </span>
-            </Link>
+            <div className="cart-dropdown-container relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowCartDropdown(!showCartDropdown);
+                }}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white"
+                aria-label="Cart"
+                aria-expanded={showCartDropdown}
+              >
+                <IconCart className="h-5 w-5" />
+                {totalItems > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                    {totalItems}
+                  </span>
+                )}
+              </button>
 
-            <Link
-              href="/login"
-              className="hidden h-10 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-zinc-400 hover:bg-zinc-100 sm:inline-flex dark:border-white/25 dark:text-white dark:hover:border-white/40 dark:hover:bg-white/10"
-            >
-              <IconUser className="h-4 w-4" />
-              Login
-            </Link>
+              {/* Cart Dropdown */}
+              {showCartDropdown && totalItems > 0 && (
+                <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
+                  <div className="max-h-96 overflow-y-auto p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-white">
+                      Shopping Cart ({totalItems} {totalItems === 1 ? "item" : "items"})
+                    </h3>
+                    <div className="space-y-3 border-b border-zinc-200 pb-3 dark:border-zinc-700">
+                      {cart.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-start gap-3 rounded-lg border border-zinc-100 p-2 dark:border-zinc-700"
+                        >
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900">
+                            <div className="flex h-full w-full items-center justify-center">
+                              <svg className="h-6 w-6 text-zinc-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
+                              {item.title}
+                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs font-semibold text-zinc-900 dark:text-white">
+                                ₹{(item.price * item.quantity).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFromCart(item.id);
+                            }}
+                            className="flex-shrink-0 rounded p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                            aria-label={`Remove ${item.title} from cart`}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z M14 11v6 M10 11v6" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-600 dark:text-zinc-400">Subtotal:</span>
+                        <span className="font-semibold text-zinc-900 dark:text-white">
+                          ₹{totalPrice.toFixed(2)}
+                        </span>
+                      </div>
+                      <Link
+                        href={isAuthenticated ? "/checkout" : "/login?redirect=/checkout"}
+                        onClick={() => setShowCartDropdown(false)}
+                        className="block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                      >
+                        Checkout
+                      </Link>
+                      <Link
+                        href="/cart"
+                        onClick={() => setShowCartDropdown(false)}
+                        className="block w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-center text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                      >
+                        View Cart
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty Cart Message */}
+              {showCartDropdown && totalItems === 0 && (
+                <div className="absolute right-0 z-50 mt-2 w-64 rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
+                  <div className="p-6 text-center">
+                    <div className="mb-2 flex justify-center">
+                      <IconCart className="h-12 w-12 text-zinc-300 dark:text-zinc-600" />
+                    </div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Your cart is empty</p>
+                    <Link
+                      href="/"
+                      onClick={() => setShowCartDropdown(false)}
+                      className="mt-4 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                    >
+                      Browse Templates
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {isAuthenticated ? (
+              <div className="user-menu-container relative hidden sm:block">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex h-10 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/25 dark:text-white dark:hover:border-white/40 dark:hover:bg-white/10"
+                >
+                  <IconUser className="h-4 w-4" />
+                  <span className="max-w-[100px] truncate">{user?.name || user?.email}</span>
+                </button>
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+                    <div className="p-2">
+                      <div className="px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400">
+                        {user?.email}
+                      </div>
+                      <Link
+                        href="/orders"
+                        className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        My Orders
+                      </Link>
+                      <button
+                        onClick={() => {
+                          logout();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden h-10 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-zinc-400 hover:bg-zinc-100 sm:inline-flex dark:border-white/25 dark:text-white dark:hover:border-white/40 dark:hover:bg-white/10"
+              >
+                <IconUser className="h-4 w-4" />
+                Login
+              </Link>
+            )}
 
             <ThemeToggle />
 
@@ -195,14 +355,40 @@ export function Header() {
                   {item.label}
                 </Link>
               ))}
-              <Link
-                href="/login"
-                className="mt-1 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 dark:border-white/25 dark:text-white dark:hover:bg-white/10"
-                onClick={() => setMobileOpen(false)}
-              >
-                <IconUser className="h-4 w-4" />
-                Login
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <div className="mt-1 rounded-md border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                    <div className="px-2 py-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      {user?.email}
+                    </div>
+                    <Link
+                      href="/orders"
+                      className="block rounded-md px-2 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-white/85 dark:hover:bg-white/10 dark:hover:text-white"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      My Orders
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileOpen(false);
+                      }}
+                      className="w-full rounded-md px-2 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="mt-1 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 dark:border-white/25 dark:text-white dark:hover:bg-white/10"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <IconUser className="h-4 w-4" />
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>

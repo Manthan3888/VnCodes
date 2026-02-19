@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useCart } from "../components/CartContext";
+import { useUser } from "../components/UserContext";
 
 export default function CartPage() {
-  const { cart, removeFromCart, updateQuantity, totalPrice, totalItems, clearCart } = useCart();
+  const { cart, removeFromCart, totalPrice, totalItems, clearCart } = useCart();
+  const { isAuthenticated } = useUser();
 
   if (cart.length === 0) {
     return (
-      <main className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center px-4 py-20 sm:px-6">
+      <main className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center bg-white px-4 py-20 dark:bg-black sm:px-6">
         <div className="text-center">
           <div className="mb-4 flex justify-center">
             <svg
@@ -41,7 +43,7 @@ export default function CartPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+    <main className="mx-auto w-full max-w-6xl bg-white px-4 py-10 dark:bg-black sm:px-6">
       <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Shopping Cart</h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
         You have {totalItems} item{totalItems !== 1 ? "s" : ""} in your cart.
@@ -78,32 +80,16 @@ export default function CartPage() {
                     </div>
 
                     <div className="mt-4 sm:mt-0 sm:pr-9">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor={`quantity-${item.id}`} className="sr-only">
-                          Quantity, {item.title}
-                        </label>
-                        <select
-                          id={`quantity-${item.id}`}
-                          name={`quantity-${item.id}`}
-                          value={item.quantity}
-                          onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
-                          className="rounded-md border border-zinc-300 bg-white py-1.5 text-left text-sm font-medium leading-5 text-zinc-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((q) => (
-                            <option key={q} value={q}>
-                              {q}
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.id)}
-                          className="ml-4 text-sm font-medium text-red-600 hover:text-red-500 dark:text-red-400"
-                        >
-                          Remove
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.id)}
+                        className="rounded p-1.5 text-red-600 hover:bg-red-50 hover:text-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
+                        aria-label={`Remove ${item.title} from cart`}
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z M14 11v6 M10 11v6" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -146,13 +132,21 @@ export default function CartPage() {
           </dl>
 
           <div className="mt-6">
-            <button
-              type="button"
-              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors lg:text-sm"
-              onClick={() => alert("Checkout not implemented in this demo.")}
-            >
-              Checkout
-            </button>
+            {isAuthenticated ? (
+              <Link
+                href="/checkout"
+                className="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors lg:text-sm"
+              >
+                Checkout
+              </Link>
+            ) : (
+              <Link
+                href="/login?redirect=/checkout"
+                className="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors lg:text-sm"
+              >
+                Login to Checkout
+              </Link>
+            )}
           </div>
         </section>
       </div>

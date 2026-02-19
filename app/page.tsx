@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /* Search bar with magnifying glass button */
 function SearchTemplateBar({
   query,
   onQueryChange,
 }: {
-  query: string;
-  onQueryChange: (query: string) => void;
+  readonly query: string;
+  readonly onQueryChange: (query: string) => void;
 }) {
   return (
     <section className="relative w-full overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
@@ -78,8 +78,8 @@ function BrowseByCategory({
   selectedCategory,
   onCategoryChange,
 }: {
-  selectedCategory: string | null;
-  onCategoryChange: (category: string | null) => void;
+  readonly selectedCategory: string | null;
+  readonly onCategoryChange: (category: string | null) => void;
 }) {
   return (
     <section className="w-full px-4 py-10 sm:px-6 lg:px-8">
@@ -152,9 +152,17 @@ function FeatureBadges() {
   );
 }
 
-import { useCart } from "./components/CartContext";
+import Link from "next/link";
 
-const MOCK_VIDEOS = [
+interface VideoTemplate {
+  id: number;
+  title: string;
+  originalPrice: number;
+  price: number;
+  category: string;
+}
+
+const DEFAULT_VIDEOS: VideoTemplate[] = [
   { id: 1, title: "Doornas Devarem - Girl...", originalPrice: 200, price: 99, category: "Creator" },
   { id: 2, title: "Bora Kamdeo - Mahade...", originalPrice: 200, price: 99, category: "Trending" },
   { id: 3, title: "Tu Chaleye - Couple...", originalPrice: 200, price: 99, category: "Couple" },
@@ -171,28 +179,30 @@ function VideoCard({
   originalPrice,
   price,
 }: {
-  id: number;
-  title: string;
-  originalPrice: number;
-  price: number;
+  readonly id: number;
+  readonly title: string;
+  readonly originalPrice: number;
+  readonly price: number;
 }) {
-  const { addToCart } = useCart();
-
   return (
     <article className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/80">
-      <div className="relative aspect-[3/4] bg-zinc-200 dark:bg-zinc-700">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-zinc-800 shadow-lg transition group-hover:scale-110 dark:bg-white/95">
-            <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
+      <Link href={`/template/${id}`}>
+        <div className="relative aspect-3/4 bg-zinc-200 dark:bg-zinc-700 cursor-pointer">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-zinc-800 shadow-lg transition group-hover:scale-110 dark:bg-white/95">
+              <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </div>
         </div>
-      </div>
+      </Link>
       <div className="p-3">
-        <h3 className="truncate text-sm font-medium text-zinc-900 dark:text-white">
-          {title}
-        </h3>
+        <Link href={`/template/${id}`}>
+          <h3 className="truncate text-sm font-medium text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+            {title}
+          </h3>
+        </Link>
         <p className="mt-1 flex items-center gap-2 text-sm">
           <span className="text-zinc-400 line-through dark:text-zinc-500">
             ₹{originalPrice.toFixed(2)}
@@ -201,35 +211,88 @@ function VideoCard({
             ₹{price.toFixed(2)}
           </span>
         </p>
-        <button
-          onClick={() => addToCart({ id, title, price, originalPrice })}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add to Cart
-        </button>
       </div>
     </article>
   );
 }
 
+import { Pagination } from "./components/Pagination";
+
 function VideoSection({
   selectedCategory,
   searchQuery,
 }: {
-  selectedCategory: string | null;
-  searchQuery: string;
+  readonly selectedCategory: string | null;
+  readonly searchQuery: string;
 }) {
   const [page, setPage] = useState(1);
-  const totalPages = 37;
+  const [videos, setVideos] = useState<VideoTemplate[]>([]);
+  const itemsPerPage = 8;
 
-  const filteredVideos = MOCK_VIDEOS.filter((v) => {
+  useEffect(() => {
+    // Load templates from admin_templates (same storage as admin dashboard)
+    const loadTemplates = () => {
+      try {
+        const stored = localStorage.getItem("admin_templates");
+        if (stored) {
+          const adminTemplates = JSON.parse(stored);
+          // Convert admin templates to video format (remove videoUrl if present)
+          const videoTemplates: VideoTemplate[] = adminTemplates.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            originalPrice: t.originalPrice,
+            price: t.price,
+            category: t.category,
+          }));
+          if (videoTemplates.length > 0) {
+            setVideos(videoTemplates);
+            return;
+          }
+        }
+        // Fallback to default videos
+        setVideos(DEFAULT_VIDEOS);
+      } catch (e) {
+        console.error("Failed to load templates", e);
+        setVideos(DEFAULT_VIDEOS);
+      }
+    };
+
+    loadTemplates();
+
+    // Listen for storage changes (cross-tab) and custom events (same-tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "admin_templates") {
+        loadTemplates();
+      }
+    };
+
+    const handleTemplatesUpdate = () => {
+      loadTemplates();
+    };
+
+    globalThis.addEventListener("storage", handleStorageChange);
+    globalThis.addEventListener("templatesUpdated", handleTemplatesUpdate);
+    return () => {
+      globalThis.removeEventListener("storage", handleStorageChange);
+      globalThis.removeEventListener("templatesUpdated", handleTemplatesUpdate);
+    };
+  }, []);
+
+  const filteredVideos = videos.filter((v) => {
     const matchesCategory = !selectedCategory || v.category === selectedCategory;
     const matchesSearch = v.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
+  const startIndex = (page - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedVideos = filteredVideos.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, searchQuery]);
 
   return (
     <section className="w-full px-4 py-10 sm:px-6 lg:px-8">
@@ -238,7 +301,7 @@ function VideoSection({
           {selectedCategory ? `${selectedCategory} Templates` : "Recently Added"}
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 md:grid-cols-4">
-          {filteredVideos.map((video) => (
+          {paginatedVideos.map((video) => (
             <VideoCard
               key={video.id}
               id={video.id}
@@ -253,56 +316,15 @@ function VideoSection({
             <p className="text-zinc-500 dark:text-zinc-400">No templates found in this category.</p>
           </div>
         )}
-        <nav
-          className="mt-8 flex flex-wrap items-center justify-center gap-2"
-          aria-label="Pagination"
-        >
-          <button
-            type="button"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onClick={() => setPage(1)}
-          >
-            1
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onClick={() => setPage(2)}
-          >
-            2
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onClick={() => setPage(3)}
-          >
-            3
-          </button>
-          <span className="px-2 text-zinc-500 dark:text-zinc-400">...</span>
-          <button
-            type="button"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onClick={() => setPage(totalPages)}
-          >
-            {totalPages}
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Next
-          </button>
-        </nav>
+        {filteredVideos.length > 0 && (
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredVideos.length}
+          />
+        )}
       </div>
     </section>
   );
@@ -347,45 +369,47 @@ function FAQSection() {
           Frequently Asked Questions
         </h2>
         <div className="space-y-2">
-          {FAQ_ITEMS.map((item, index) => (
-            <div
-              key={index}
-              className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800/80"
-            >
-              <button
-                type="button"
-                className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-50 dark:text-white dark:hover:bg-zinc-700/50 sm:text-base"
-                onClick={() => setOpenIndex((i) => (i === index ? null : index))}
-                aria-expanded={openIndex === index}
-                aria-controls={`faq-answer-${index}`}
-                id={`faq-question-${index}`}
-              >
-                {item.question}
-                <span
-                  className={`shrink-0 text-zinc-500 transition-transform dark:text-zinc-400 ${openIndex === index ? "rotate-180" : ""
-                    }`}
-                  aria-hidden
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </button>
+          {FAQ_ITEMS.map((item, index) => {
+            const isOpen = openIndex === index;
+            return (
               <div
-                id={`faq-answer-${index}`}
-                role="region"
-                aria-labelledby={`faq-question-${index}`}
-                className={`grid transition-[grid-template-rows] duration-200 ${openIndex === index ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                  }`}
+                key={item.question}
+                className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800/80"
               >
-                <div className="overflow-hidden">
-                  <p className="border-t border-zinc-200 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 sm:text-base">
-                    {item.answer}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-50 dark:text-white dark:hover:bg-zinc-700/50 sm:text-base"
+                  onClick={() => setOpenIndex((i) => (i === index ? null : index))}
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${index}`}
+                  id={`faq-question-${index}`}
+                >
+                  {item.question}
+                  <span
+                    className={`shrink-0 text-zinc-500 transition-transform dark:text-zinc-400 ${isOpen ? "rotate-180" : ""
+                      }`}
+                    aria-hidden
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+                <section
+                  id={`faq-answer-${index}`}
+                  aria-labelledby={`faq-question-${index}`}
+                  className={`grid transition-[grid-template-rows] duration-200 ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                >
+                  <div className="overflow-hidden">
+                    <p className="border-t border-zinc-200 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 sm:text-base">
+                      {item.answer}
+                    </p>
+                  </div>
+                </section>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
