@@ -160,6 +160,7 @@ interface VideoTemplate {
   originalPrice: number;
   price: number;
   category: string;
+  templateType?: "free" | "paid";
 }
 
 const DEFAULT_VIDEOS: VideoTemplate[] = [
@@ -178,16 +179,25 @@ function VideoCard({
   title,
   originalPrice,
   price,
+  templateType,
 }: {
   readonly id: number;
   readonly title: string;
   readonly originalPrice: number;
   readonly price: number;
+  readonly templateType?: "free" | "paid";
 }) {
   return (
     <article className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/80">
       <Link href={`/template/${id}`}>
         <div className="relative aspect-3/4 bg-zinc-200 dark:bg-zinc-700 cursor-pointer">
+          {templateType === "free" && (
+            <div className="absolute top-2 right-2 z-10">
+              <span className="inline-flex rounded-full bg-green-500 px-2 py-1 text-xs font-semibold text-white shadow-md">
+                FREE
+              </span>
+            </div>
+          )}
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-zinc-800 shadow-lg transition group-hover:scale-110 dark:bg-white/95">
               <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -204,12 +214,20 @@ function VideoCard({
           </h3>
         </Link>
         <p className="mt-1 flex items-center gap-2 text-sm">
-          <span className="text-zinc-400 line-through dark:text-zinc-500">
-            ₹{originalPrice.toFixed(2)}
-          </span>
-          <span className="font-semibold text-zinc-900 dark:text-white">
-            ₹{price.toFixed(2)}
-          </span>
+          {templateType === "free" ? (
+            <span className="font-semibold text-green-600 dark:text-green-400">
+              Free
+            </span>
+          ) : (
+            <>
+              <span className="text-zinc-400 line-through dark:text-zinc-500">
+                ₹{originalPrice.toFixed(2)}
+              </span>
+              <span className="font-semibold text-zinc-900 dark:text-white">
+                ₹{price.toFixed(2)}
+              </span>
+            </>
+          )}
         </p>
       </div>
     </article>
@@ -243,6 +261,7 @@ function VideoSection({
             originalPrice: t.originalPrice,
             price: t.price,
             category: t.category,
+            templateType: t.templateType || "paid",
           }));
           if (videoTemplates.length > 0) {
             setVideos(videoTemplates);
@@ -308,6 +327,7 @@ function VideoSection({
               title={video.title}
               originalPrice={video.originalPrice}
               price={video.price}
+              templateType={video.templateType}
             />
           ))}
         </div>

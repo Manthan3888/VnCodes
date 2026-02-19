@@ -9,6 +9,7 @@ interface Template {
   originalPrice: number;
   price: number;
   category: string;
+  templateType?: "free" | "paid";
   videoUrl?: string;
   videoData?: string; // Base64 encoded video data
   videoFileName?: string; // Original filename
@@ -26,6 +27,7 @@ export default function AdminTemplatesPage() {
     originalPrice: "",
     price: "",
     category: "",
+    templateType: "" as "" | "free" | "paid",
     videoUrl: "",
     videoFile: null as File | null,
     videoPreview: null as string | null,
@@ -109,7 +111,7 @@ export default function AdminTemplatesPage() {
   };
 
   const handleAdd = async () => {
-    if (!formData.title || !formData.price || !formData.category) {
+    if (!formData.title || !formData.price || !formData.category || !formData.templateType) {
       alert("Please fill in all required fields");
       return;
     }
@@ -133,6 +135,7 @@ export default function AdminTemplatesPage() {
       originalPrice: parseFloat(formData.originalPrice) || parseFloat(formData.price),
       price: parseFloat(formData.price),
       category: formData.category,
+      templateType: formData.templateType || "paid",
       videoUrl: formData.videoUrl || undefined,
       videoData,
       videoFileName,
@@ -143,7 +146,7 @@ export default function AdminTemplatesPage() {
     if (formData.videoPreview) {
       URL.revokeObjectURL(formData.videoPreview);
     }
-    setFormData({ title: "", originalPrice: "", price: "", category: "", videoUrl: "", videoFile: null, videoPreview: null });
+    setFormData({ title: "", originalPrice: "", price: "", category: "", templateType: "", videoUrl: "", videoFile: null, videoPreview: null });
     setIsAdding(false);
   };
 
@@ -154,6 +157,7 @@ export default function AdminTemplatesPage() {
       originalPrice: template.originalPrice.toString(),
       price: template.price.toString(),
       category: template.category,
+      templateType: template.templateType || "",
       videoUrl: template.videoUrl || "",
       videoFile: null,
       videoPreview: template.videoData || null,
@@ -189,6 +193,7 @@ export default function AdminTemplatesPage() {
             originalPrice: parseFloat(formData.originalPrice) || parseFloat(formData.price),
             price: parseFloat(formData.price),
             category: formData.category,
+            templateType: formData.templateType || "paid",
             videoUrl: formData.videoUrl || undefined,
             videoData,
             videoFileName,
@@ -202,7 +207,7 @@ export default function AdminTemplatesPage() {
       URL.revokeObjectURL(formData.videoPreview);
     }
     setEditingId(null);
-    setFormData({ title: "", originalPrice: "", price: "", category: "", videoUrl: "", videoFile: null, videoPreview: null });
+    setFormData({ title: "", originalPrice: "", price: "", category: "", templateType: "", videoUrl: "", videoFile: null, videoPreview: null });
   };
 
   const handleDelete = (id: number) => {
@@ -339,6 +344,20 @@ export default function AdminTemplatesPage() {
                 placeholder="99"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Template Type *
+              </label>
+              <select
+                value={formData.templateType}
+                onChange={(e) => setFormData({ ...formData, templateType: e.target.value as "" | "free" | "paid" })}
+                className="mt-1 block w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white sm:text-sm"
+              >
+                <option value="">Select type</option>
+                <option value="free">Free</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Video File *
@@ -387,7 +406,7 @@ export default function AdminTemplatesPage() {
                 }
                 setIsAdding(false);
                 setEditingId(null);
-                setFormData({ title: "", originalPrice: "", price: "", category: "", videoUrl: "", videoFile: null, videoPreview: null });
+                setFormData({ title: "", originalPrice: "", price: "", category: "", templateType: "", videoUrl: "", videoFile: null, videoPreview: null });
               }}
               className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
@@ -418,6 +437,9 @@ export default function AdminTemplatesPage() {
                   Price
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   Video file
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -444,6 +466,19 @@ export default function AdminTemplatesPage() {
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-zinc-900 dark:text-white">
                     ₹{template.price.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
+                    {template.templateType ? (
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        template.templateType === "free" 
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" 
+                          : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                      }`}>
+                        {template.templateType === "free" ? "Free" : "Paid"}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400 dark:text-zinc-500">Paid</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400">
                     {template.videoData || template.videoUrl ? (

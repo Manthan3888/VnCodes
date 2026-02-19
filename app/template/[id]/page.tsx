@@ -14,6 +14,7 @@ interface Template {
   price: number;
   category: string;
   date: string;
+  templateType?: "free" | "paid";
   description?: string;
   videoUrl?: string;
   videoData?: string; // Base64 encoded video data
@@ -118,6 +119,7 @@ const loadTemplates = (): Template[] => {
         originalPrice: t.originalPrice,
         price: t.price,
         category: t.category,
+        templateType: t.templateType || "paid",
         date: new Date().toISOString().split("T")[0], // Use current date if not provided
         description: t.description || "A professional video template.",
         videoUrl: t.videoUrl,
@@ -187,6 +189,37 @@ export default function TemplateDetailPage() {
         originalPrice: template.originalPrice,
       });
       setShowPopup(true);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!template) return;
+
+    if (template.videoData) {
+      // Convert base64 to blob and download
+      const byteCharacters = atob(template.videoData.split(",")[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "video/mp4" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = template.videoFileName || `${template.title.replace(/\s+/g, "-")}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } else if (template.videoUrl) {
+      // Download from URL
+      const link = document.createElement("a");
+      link.href = template.videoUrl;
+      link.download = template.videoFileName || `${template.title.replace(/\s+/g, "-")}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
   };
 
@@ -277,21 +310,34 @@ export default function TemplateDetailPage() {
           </div>
 
           <section className="mt-6 space-y-3">
-            <div>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Purchase this template only at
-                {" "}
-                <span className="font-semibold text-zinc-900 dark:text-white">VN Codes</span>
-              </p>
-              <div className="mt-2 flex items-baseline gap-3">
-                <span className="text-lg text-zinc-400 line-through dark:text-zinc-500">
-                  ₹{template.originalPrice.toFixed(2)}
-                </span>
-                <span className="text-3xl font-bold text-zinc-900 dark:text-white">
-                  ₹{template.price.toFixed(2)}
-                </span>
+            {template.templateType === "free" ? (
+              <div>
+                <div className="mb-2 inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                  Free Template
+                </div>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Download this free template from
+                  {" "}
+                  <span className="font-semibold text-zinc-900 dark:text-white">VN Codes</span>
+                </p>
               </div>
-            </div>
+            ) : (
+              <div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Purchase this template only at
+                  {" "}
+                  <span className="font-semibold text-zinc-900 dark:text-white">VN Codes</span>
+                </p>
+                <div className="mt-2 flex items-baseline gap-3">
+                  <span className="text-lg text-zinc-400 line-through dark:text-zinc-500">
+                    ₹{template.originalPrice.toFixed(2)}
+                  </span>
+                  <span className="text-3xl font-bold text-zinc-900 dark:text-white">
+                    ₹{template.price.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {template.description && (
               <p className="mt-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
@@ -310,12 +356,24 @@ export default function TemplateDetailPage() {
             )}
           </section>
 
-          <button
-            onClick={handleAddToCart}
-            className="mt-6 w-full rounded-lg bg-zinc-900 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-          >
-            Add To Cart
-          </button>
+          {template.templateType === "free" ? (
+            <button
+              onClick={handleDownload}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download Free Template
+            </button>
+          ) : (
+            <button
+              onClick={handleAddToCart}
+              className="mt-6 w-full rounded-lg bg-zinc-900 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+            >
+              Add To Cart
+            </button>
+          )}
 
           {/* Features */}
           <div className="mt-6 space-y-3">
@@ -376,6 +434,13 @@ export default function TemplateDetailPage() {
                 className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/80"
               >
                 <div className="relative aspect-3/4 bg-zinc-200 dark:bg-zinc-700">
+                  {item.templateType === "free" && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="inline-flex rounded-full bg-green-500 px-2 py-1 text-xs font-semibold text-white shadow-md">
+                        FREE
+                      </span>
+                    </div>
+                  )}
                   {item.videoData || item.videoUrl ? (
                     <video
                       src={item.videoData || item.videoUrl}
@@ -401,12 +466,20 @@ export default function TemplateDetailPage() {
                     {item.fullTitle || item.title}
                   </h4>
                   <p className="mt-1 flex items-center gap-2 text-sm">
-                    <span className="text-zinc-400 line-through dark:text-zinc-500">
-                      ₹{item.originalPrice.toFixed(2)}
-                    </span>
-                    <span className="font-semibold text-zinc-900 dark:text-white">
-                      ₹{item.price.toFixed(2)}
-                    </span>
+                    {item.templateType === "free" ? (
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        Free
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-zinc-400 line-through dark:text-zinc-500">
+                          ₹{item.originalPrice.toFixed(2)}
+                        </span>
+                        <span className="font-semibold text-zinc-900 dark:text-white">
+                          ₹{item.price.toFixed(2)}
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
               </Link>
@@ -415,11 +488,13 @@ export default function TemplateDetailPage() {
         </section>
       )}
 
-      <AddToCartPopup
-        isOpen={showPopup}
-        onClose={() => setShowPopup(false)}
-        templateTitle={template.fullTitle}
-      />
+      {template.templateType !== "free" && (
+        <AddToCartPopup
+          isOpen={showPopup}
+          onClose={() => setShowPopup(false)}
+          templateTitle={template.fullTitle}
+        />
+      )}
     </main>
   );
 }
