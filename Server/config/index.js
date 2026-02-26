@@ -1,6 +1,10 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Always load .env from the Server directory (not cwd) so credentials are correct
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const config = {
   port: Number(process.env.PORT) || 5000,

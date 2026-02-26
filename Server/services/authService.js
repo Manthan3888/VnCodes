@@ -14,8 +14,8 @@ export function generateAdminToken(adminId) {
 export async function loginUser(email, password) {
   const user = await User.findOne({ email }).select("+password");
   if (!user) return null;
-  const match = await user.comparePassword(password);
-  if (!match) return null;
+  const userMatch = await user.comparePassword(password);
+  if (!userMatch) return null;
   return user;
 }
 
@@ -27,22 +27,40 @@ export async function registerUser(name, email, password) {
 }
 
 export async function loginAdmin(email, password) {
-  const admin = await Admin.findOne({ email }).select("+password");
-  if (!admin) return null;
-  const match = await admin.comparePassword(password);
-  if (!match) return null;
-  return admin;
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const passwordStr = password != null ? String(password) : "";
+  if (normalizedEmail && passwordStr) {
+    const admin = await Admin.findOne({ email: normalizedEmail }).select("+password");
+    if (admin) {
+      const adminMatch = await admin.comparePassword(passwordStr);
+      if (adminMatch) return admin;
+    }
+  }
+  return null;
 }
 
 /**
  * Ensure at least one admin exists; create default from env if none.
+ * If an admin with ADMIN_EMAIL already exists, sync their password from env.
+ * Email/password from env are trimmed and email lowercased so .env quirks don't break login.
  */
 export async function ensureDefaultAdmin() {
-  const count = await Admin.countDocuments();
-  if (count > 0) return;
-  await Admin.create({
-    name: "Admin User",
-    email: config.admin.email,
-    password: config.admin.password,
-  });
+  const defaultEmail = String(config.admin.email || "").trim().toLowerCase();
+  const rawPassword = config.admin.password;
+  const defaultPassword =
+    rawPassword === undefined || rawPassword === null ? "" : String(rawPassword).trim();
+  if (defaultEmail && defaultPassword) {
+    const admin = await Admin.findOne({ email: defaultEmail }).select("+password");
+    if (admin) {
+      admin.password = defaultPassword;
+      await admin.save(); // pre-save hook re-hashes
+      return;
+    }
+    // No admin with this email: create one so .env credentials work (even if other admins exist)
+    await Admin.create({
+      name: "Admin User",
+      email: defaultEmail,
+      password: defaultPassword,
+    });
+  }
 }

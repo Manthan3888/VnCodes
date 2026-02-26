@@ -9,6 +9,4 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-categorySchema.index({ id: 1 });
-
 export const Category = mongoose.model("Category", categorySchema);
